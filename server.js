@@ -2,6 +2,8 @@ const express = require('express');
 const res = require('express/lib/response');
 const inputCheck = require('./utils/inputCheck');
 const mysql = require('mysql2');
+const { rosybrown } = require('color-name');
+const e = require('express');
 const PORT = process.env.PORT || 3001;
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -22,7 +24,11 @@ app.get('/', (req, res) => {
     });
 });
 app.get('/api/candidate', (req, res) => {
-    const sql = 'SELECT * FROM candidates';
+    const sql = `SELECT candidates.*, parties.name 
+    AS party_name 
+    FROM candidates 
+    LEFT JOIN parties 
+    ON candidates.party_id = parties.id`;
     db.query(sql, (err, rows) => {
         if (err) {
             res.status(500).json({ error: err.message });
@@ -35,7 +41,12 @@ app.get('/api/candidate', (req, res) => {
     });
 });
 app.get('/api/candidate/:id', (req, res) => {
-    sql = `SELECT * FROM candidates WHERE id = ?`
+    sql = `SELECT candidates.*, parties.name 
+    AS party_name 
+    FROM candidates 
+    LEFT JOIN parties 
+    ON candidates.party_id = parties.id 
+    WHERE candidates.id = ?`;
     params = [req.params.id];
     db.query(sql, params, (err, row) => {
         if (err) {
@@ -89,18 +100,75 @@ app.post('/api/candidate', ({ body }, res) => {
         });
     });
 });
-/* const sql = `INSERT INTO candidates (id, first_name, last_name, industry_connected)
-                VALUES (?,?,?,?)`;
-const params = [1, 'Ronald', 'Firbank', 1];
-db.query(sql, params, (err, result) => {
-    if (err) {
-        console.log(err);
+app.get('/api/parties', (req, res) => {
+    const sql = 'SELECT * FROM parties';
+    db.query(sql, (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: error.message });
+            return;
+        }
+        res.json({
+            message: 'Success',
+            data: rows
+        });
+    });
+});
+app.get('/api/party/:id', (req, res) => {
+    const sql = 'SELECT * FROM parties WHERE id = ?';
+    params = [req.params.id];
+    db.query(sql, params, (err, row) => {
+        if (err) {
+            res.status(400).json({ error: error.message });
+            return;
+        }
+        res.json({
+            message: 'Success',
+            data: row
+        });
+    });
+});
+app.delete('/api/party/:id', (req, res) => {
+    const sql = `DELETE FROM parties WHERE id = ?`;
+    params = [req.params.id];
+    db.query(sql, params, (err, result) => {
+        if (err) {
+            res.status(400).json({ error: res.message });
+        } else if (!result.affectedRows) {
+            res.json({
+                message: 'Party not found'
+            });
+        } else {
+            res.json({
+                message: 'Sucess',
+                changes: result.affectedRows,
+                id: req.params.id
+            });
+        }
+    });
+});
+app.put('/api/candidate/:id', (req, res) => {
+    const errors = inputCheck(req.body, 'party_id');
+    if (errors) {
+        res.status(400).json({ error: errors });
+        return;
     }
-    console.log(result);
-}); */
-/*  */
-
-
+    const sql = `UPDATE candidates SET party_id = ?
+            WHERE id = ?`;
+    const params = [req.body.party_id, req.params.id]
+    db.query(sql, params, (err, result) => {
+        if (err) {
+            res.status(400).json({ error: err.message });
+        } else if (!result.affectedRows) {
+            res.json({ message: 'Candidate not found' });
+        } else {
+            res.json({
+                message: 'Sucess',
+                data: req.body,
+                changes: result.affectedRows
+            });
+        }
+    });
+});
 app.use((req, res) => {
     res.status(404).end();
 });
